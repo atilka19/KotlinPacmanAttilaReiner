@@ -3,8 +3,9 @@ package org.pondar.pacmankotlin
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.widget.TextView
-import java.util.ArrayList
+import kotlin.math.sqrt
 
 
 /**
@@ -12,78 +13,295 @@ import java.util.ArrayList
  * This class should contain all your game logic
  */
 
-class Game(private var context: Context,view: TextView) {
+class Game(private var context: Context,pointsView: TextView,levelView: TextView) {
 
-        private var pointsView: TextView = view
-        private var points : Int = 0
-        //bitmap of the pacman
-        var pacBitmap: Bitmap
-        var pacx: Int = 0
-        var pacy: Int = 0
+    private var pointsView: TextView = pointsView
+    private var levelView: TextView = levelView
+    //Keeping an untouched bitmap var for rotation and mirroring purposes
+    var pacBitMap: Bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.pacman)
 
+    //Bitmaps for local references, project could be refactored so these are not needed here
+    var bitmap: Bitmap = pacBitMap
+    var coinBitMap: Bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.custom_coin_8b)
+    var ghostBitMap: Bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.custom_ghost_8b)
+    var pacx: Int = 0
+    var pacy: Int = 0
 
-        //did we initialize the coins?
-        var coinsInitialized = false
+    //Directions
+    private val RIGHT = 1
+    private val LEFT = 2
+    private val UP = 3
+    private val DOWN = 4
 
-        //the list of goldcoins - initially empty
-        var coins = ArrayList<GoldCoin>()
-        //a reference to the gameview
-        private var gameView: GameView? = null
-        private var h: Int = 0
-        private var w: Int = 0 //height and width of screen
+    var direction = RIGHT
 
+    //did we initialize the coins?
+    var coinsInitialized = false
 
-    //The init code is called when we create a new Game class.
-    //it's a good place to initialize our images.
-    init {
-        pacBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.pacman)
+    //the list of goldcoins - initially empty
+    var coins = ArrayList<GoldCoin>()
+    var coinsNotTakenCount: Int = 0
 
-    }
+    //List of enemies + init
+    var enemies = ArrayList<Ghost>()
+    var enemiesInitialized = false
+
+    //a reference to the gameview
+    private var gameView: GameView? = null
+    private var h: Int = 0
+    private var w: Int = 0
+
+    //level counter
+    var level: Int = 1
+    var levelTimeLeft: Int = 60
+    //point counter
+    private var points : Int = 0
+    //player alive
+    private var alive: Boolean = true
 
     fun setGameView(view: GameView) {
         this.gameView = view
     }
 
-    //TODO initialize goldcoins also here
-    fun initializeGoldcoins()
+    fun initializeGoldcoins(count: Int)
     {
-        //DO Stuff to initialize the array list with some coins.
+        for (i in 1..count) {
+            val randomX = (0..(w - coinBitMap.width)).random()
+            val randomY = (0..(h - coinBitMap.height)).random()
+            coins.add(GoldCoin(context, randomX, randomY))
+        }
 
         coinsInitialized = true
     }
 
+    //Adding enemies for different levels
+    //I couldn't think of a way of doing this dynamically or using randoms without making it at least sometimes impossible
+    //So I created enemies for 10 levels that should be doable
+    fun initializeEnemies()
+    {
+        when(level) {
+            1 -> {
+                val randomX = (w/4..(w - ghostBitMap.width)).random()
+                val randomY = (h/4..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,6, DOWN, w, h))
+            }
+            2 -> {
+                val randomX = (w/3..(w - ghostBitMap.width)).random()
+                val randomY = (h/3..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,6, RIGHT, w, h))
+            }
+            3 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,8, UP, w, h))
+            }
+            4 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,8, LEFT, w, h))
+            }
+            5 -> {
+                val randomX1 = (w/2..(w - ghostBitMap.width)).random()
+                val randomY1 = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX1,randomY1,10, DOWN, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,12, RIGHT, w, h))
+            }
+            6 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,10, RIGHT, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,12, UP, w, h))
+            }
+            7 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,10, UP, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,12, LEFT, w, h))
+            }
+            8 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,10, LEFT, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,12, DOWN, w, h))
+            }
+            9 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,12, DOWN, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,14, RIGHT, w, h))
+            }
+            10 -> {
+                val randomX = (w/2..(w - ghostBitMap.width)).random()
+                val randomY = (h/2..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX,randomY,12, LEFT, w, h))
+                val randomX2 = (200..(w - ghostBitMap.width)).random()
+                val randomY2 = (200..(h - ghostBitMap.height)).random()
+                enemies.add(Ghost(context,randomX2,randomY2,14, UP, w, h))
+            }
+        }
+
+        enemiesInitialized = true
+    }
+
 
     fun newGame() {
-        pacx = 50
-        pacy = 400 //just some starting coordinates - you can change this.
+        pacx = 0
+        pacy = 0 //just some starting coordinates - you can change this.
         //reset the points
         coinsInitialized = false
+        enemiesInitialized = false
+        bitmap = pacBitMap
+        alive = true
         points = 0
+        level = 1
+        levelTimeLeft = 60
+        direction = RIGHT
+        coins.clear()
+        enemies.clear()
         pointsView.text = "${context.resources.getString(R.string.points)} $points"
+        levelView.text = "${context.resources.getString(R.string.level)} $level"
         gameView?.invalidate() //redraw screen
     }
+
+    fun levelUp() {
+        pacx = 0
+        pacy = 0
+        level++
+        levelTimeLeft = 60
+        bitmap = pacBitMap
+        coinsInitialized = false
+        enemiesInitialized = false
+        direction = RIGHT
+        coins.clear()
+        enemies.clear()
+        levelView.text = "${context.resources.getString(R.string.level)} $level"
+        gameView?.invalidate() //redraw screen
+    }
+
     fun setSize(h: Int, w: Int) {
         this.h = h
         this.w = w
     }
 
-    fun movePacmanRight(pixels: Int) {
-        //still within our boundaries?
-        if (pacx + pixels + pacBitmap.width < w) {
-            pacx = pacx + pixels
+    fun moveRight(pixels: Int) {
+        if (pacx + pixels + bitmap.width < w) {
+            pacx += pixels
             doCollisionCheck()
-            gameView!!.invalidate()
+        }
+        gameView!!.invalidate()
+    }
+
+    fun moveLeft(pixels: Int) {
+        if (pacx - pixels > 0) {
+            pacx -= pixels
+            doCollisionCheck()
+        }
+        gameView!!.invalidate()
+    }
+
+    fun moveUp(pixels: Int) {
+        if (pacy - pixels > 0) {
+            pacy -= pixels
+            doCollisionCheck()
+        }
+        gameView!!.invalidate()
+    }
+
+    fun moveDown(pixels: Int) {
+        if (pacy + pixels + bitmap.height < h) {
+            pacy += pixels
+            doCollisionCheck()
+        }
+        gameView!!.invalidate()
+    }
+
+    //Function to change direction of movement
+    fun changeDirection(newDir: String) {
+        val matrix = Matrix()
+
+        when(newDir) {
+            "u" -> {
+                matrix.postRotate(270F)
+                val scaledBitmap = Bitmap.createScaledBitmap(pacBitMap, pacBitMap.width, pacBitMap.height, true)
+                bitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap.width, scaledBitmap.height, matrix, true)
+            }
+            "d" -> {
+                matrix.postRotate(90F)
+                val scaledBitmap = Bitmap.createScaledBitmap(pacBitMap, pacBitMap.width, pacBitMap.height, true)
+                bitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap.width, scaledBitmap.height, matrix, true)
+            }
+            "l" -> {
+                matrix.preScale(-1.0f, 1.0f)
+                val scaledBitmap = Bitmap.createScaledBitmap(pacBitMap, pacBitMap.width, pacBitMap.height, true)
+                bitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap.width, scaledBitmap.height, matrix, true)
+            }
+            "r" -> {
+                bitmap = pacBitMap
+            }
+        }
+
+        when(newDir) {
+            "r" -> direction = RIGHT
+            "l" -> direction = LEFT
+            "u" -> direction = UP
+            "d" -> direction = DOWN
         }
     }
 
-    //TODO check if the pacman touches a gold coin
-    //and if yes, then update the neccesseary data
-    //for the gold coins and the points
-    //so you need to go through the arraylist of goldcoins and
-    //check each of them for a collision with the pacman
     fun doCollisionCheck() {
+        coins.forEach {
+            if (!it.taken) {
+                //Calculating distance
+                val dist = checkDistanceCoin(pacx, pacy, it.cordX, it.cordY)
+                //Checking if the currently iterated coin is hit
+                //Will go trough if distance between 2 objects is smaller, than the sum of distances from center to border of the 2 objects.
+                if (dist < (bitmap.width/2) + (coinBitMap.width/2)) {
+                    it.taken = true
+                    points++
+                    pointsView.text = "${context.resources.getString(R.string.points)} $points"
+                    //Update the count of active coins
+                    coinsNotTakenCount = coins.filter { !it.taken }.size
+                }
+            }
 
+        }
+
+        enemies.forEach {
+                //Calculating distance
+                val dist = checkDistanceGhost(pacx, pacy, it.cordX, it.cordY)
+                //Checking if the currently iterated ghost is hit
+                //Needed to modify this a bit compared to the coins, since the ghost doesn't have a 1:1 w-h ratio, so I just took an average of the 2
+                if (dist < (bitmap.width /2) + (ghostBitMap.width/2)) {
+                    alive = false
+                }
+        }
+
+        if (!alive) {
+            newGame()
+        }
     }
 
+    fun checkDistanceCoin(px: Int, py: Int, cx: Int, cy: Int): Double {
+        //Formula is adjusted to be looking at the center of both objects, rather than the top-left corner
+        //I think it's correct based on my testing and the best thinking i'm capable of, could be mistaken, just wanted to avoid a funky-hitbox-feeling
+        val sumx = ((cx + (coinBitMap.width/2)) - (px + (bitmap.width/2))) * ((cx + (coinBitMap.width/2)) - (px + (bitmap.width/2)))
+        val sumy  = ((cy + (coinBitMap.height/2)) - (py + (bitmap.width/2))) * ((cy + (coinBitMap.height/2)) - (py + (bitmap.height/2)))
+        return sqrt(sumx.toDouble() + sumy.toDouble())
+    }
 
+    fun checkDistanceGhost(px: Int, py: Int, cx: Int, cy: Int): Double {
+        val sumx = ((cx + (ghostBitMap.width/2)) - (px + (bitmap.width/2))) * ((cx + (ghostBitMap.width/2)) - (px + (bitmap.width/2)))
+        val sumy  = ((cy + (ghostBitMap.height/2)) - (py + (bitmap.width/2))) * ((cy + (ghostBitMap.height/2)) - (py + (bitmap.height/2)))
+        return sqrt(sumx.toDouble() + sumy.toDouble())
+    }
 }

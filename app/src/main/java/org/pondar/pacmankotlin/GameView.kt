@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
-import android.util.Log
 import android.view.View
 
 
@@ -39,12 +38,21 @@ class GameView : View {
         w = canvas.width
         //update the size for the canvas to the game.
         game?.setSize(h, w)
-        Log.d("GAMEVIEW", "h = $h, w = $w")
 
         //are the coins initiazlied?
         //if not initizlise them
-        if (!(game!!.coinsInitialized))
-            game?.initializeGoldcoins()
+        if (!(game!!.coinsInitialized)){
+            game?.initializeGoldcoins(game?.level!! + 4)
+            game?.coinsNotTakenCount = game?.level!! + 4
+        }
+        if (!(game!!.enemiesInitialized)){
+            game?.initializeEnemies()
+        }
+
+        if (game?.coinsNotTakenCount == 0 ) {
+            game?.level?.plus(1)
+            game?.levelUp()
+        }
 
 
         //Making a new paint object
@@ -52,12 +60,22 @@ class GameView : View {
         canvas.drawColor(Color.WHITE) //clear entire canvas to white color
 
         //draw the pacman
-        canvas.drawBitmap(game!!.pacBitmap, game?.pacx!!.toFloat(),
+        canvas.drawBitmap(game!!.bitmap, game?.pacx!!.toFloat(),
                 game?.pacy!!.toFloat(), paint)
 
         //TODO loop through the list of goldcoins and draw them here
+        game?.coins?.forEach {
+            if (!it.taken) {
+                canvas.drawBitmap(it.bitMap, it.cordX.toFloat(),
+                        it.cordY.toFloat(), paint)
+            }
+        }
 
-        game?.doCollisionCheck()
+        game?.enemies?.forEach {
+                canvas.drawBitmap(it.bitMap, it.cordX.toFloat(),
+                        it.cordY.toFloat(), paint)
+        }
+
         super.onDraw(canvas)
     }
 
