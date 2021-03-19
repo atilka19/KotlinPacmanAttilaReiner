@@ -197,7 +197,7 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
         if (pacx + pixels + bitmap.width < w) {
             pacx += pixels
             doCollisionCheck()
-        }
+        } else pacx = 0
         gameView!!.invalidate()
     }
 
@@ -205,7 +205,7 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
         if (pacx - pixels > 0) {
             pacx -= pixels
             doCollisionCheck()
-        }
+        } else pacx = w - pacBitMap.width
         gameView!!.invalidate()
     }
 
@@ -213,7 +213,7 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
         if (pacy - pixels > 0) {
             pacy -= pixels
             doCollisionCheck()
-        }
+        } else pacy = h - pacBitMap.height
         gameView!!.invalidate()
     }
 
@@ -221,7 +221,7 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
         if (pacy + pixels + bitmap.height < h) {
             pacy += pixels
             doCollisionCheck()
-        }
+        } else pacy = 0
         gameView!!.invalidate()
     }
 
@@ -264,7 +264,8 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
                 //Calculating distance
                 val dist = checkDistanceCoin(pacx, pacy, it.cordX, it.cordY)
                 //Checking if the currently iterated coin is hit
-                //Will go trough if distance between 2 objects is smaller, than the sum of distances from center to border of the 2 objects.
+                //Will go trough if distance between 2 objects is smaller,
+                //then the sum of distances from center to border of the 2 objects.
                 if (dist < (bitmap.width/2) + (coinBitMap.width/2)) {
                     it.taken = true
                     points++
@@ -294,12 +295,14 @@ class Game(private var context: Context,pointsView: TextView,levelView: TextView
     fun checkDistanceCoin(px: Int, py: Int, cx: Int, cy: Int): Double {
         //Formula is adjusted to be looking at the center of both objects, rather than the top-left corner
         //I think it's correct based on my testing and the best thinking i'm capable of, could be mistaken, just wanted to avoid a funky-hitbox-feeling
+        //It's supposed to calculate this by adding half the width to the X coords and half the height to the Y coords
         val sumx = ((cx + (coinBitMap.width/2)) - (px + (bitmap.width/2))) * ((cx + (coinBitMap.width/2)) - (px + (bitmap.width/2)))
         val sumy  = ((cy + (coinBitMap.height/2)) - (py + (bitmap.width/2))) * ((cy + (coinBitMap.height/2)) - (py + (bitmap.height/2)))
         return sqrt(sumx.toDouble() + sumy.toDouble())
     }
 
     fun checkDistanceGhost(px: Int, py: Int, cx: Int, cy: Int): Double {
+        // I haven't adjusted this formula for the ghosts specifically but it seems to be good enough, even tho the ratio isn't 1:1 on the ghost
         val sumx = ((cx + (ghostBitMap.width/2)) - (px + (bitmap.width/2))) * ((cx + (ghostBitMap.width/2)) - (px + (bitmap.width/2)))
         val sumy  = ((cy + (ghostBitMap.height/2)) - (py + (bitmap.width/2))) * ((cy + (ghostBitMap.height/2)) - (py + (bitmap.height/2)))
         return sqrt(sumx.toDouble() + sumy.toDouble())
